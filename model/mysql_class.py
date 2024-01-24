@@ -2,11 +2,7 @@
 import pymysql
 import json
 class mysql_class(object):
-    DB_HOST = '127.0.0.1'
-    DB_PORT = 3306
-    DB_DATABASE = 'tiktok'
-    DB_USERNAME = 'tiktok'
-    DB_PASSWORD = '1235789!@#'
+
     db=None
     __instans = None
     def __new__(cls, *args, **kwargs):
