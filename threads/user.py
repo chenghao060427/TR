@@ -86,41 +86,41 @@ class register_user_thread(QThread):
         total = len(user_list)
         if(total==0):total=1
         for u in user_list:
-            # try:
-            if(u['browser_account']==None):
-                account_infor={
-                    'name':u['email'],
-                    'domain_name':'https://seller-us.tiktok.com',
-                    'username':u['email'],
-                    'password':u['email_pwd'],
-                    'group_id':'3492708',
-                    'country':'us',
-                    'regin':'new york',
-                    'user_proxy_config':{"proxy_soft":"922S5"},
-                    'fingerprint_config':{
-                        'automatic_timezone':1,
-                        'webrtc':'proxy',
-                        'location_switch':1,
-                        'language':["en-US","en"],
+            try:
+                if(u['browser_account']==None):
+                    account_infor={
+                        'name':u['email'],
+                        'domain_name':'https://seller-us.tiktok.com',
+                        'username':u['email'],
+                        'password':u['email_pwd'],
+                        'group_id':'3492708',
+                        'country':'us',
+                        'regin':'new york',
+                        'user_proxy_config':{"proxy_soft":"922S5"},
+                        'fingerprint_config':{
+                            'automatic_timezone':1,
+                            'webrtc':'proxy',
+                            'location_switch':1,
+                            'language':["en-US","en"],
+                        }
                     }
-                }
-                print(u)
-                u['browser_account'] = self.browser.create_account(account_infor=account_infor)
-                self.user.update(data=u, condition=['id', '=', u['id']])
-            driver = self.browser.get_driver(u['browser_account'])
-            t_service = tiktok_service(user=u,driver=driver)
-            result = t_service.register()
-            if(result==True):
-                i+=1
-                self.msg_sig.emit('第{}个用户注册成功'.format(i))
-                self.pro_sig.emit(int((i)*100/total))
+                    print(u)
+                    u['browser_account'] = self.browser.create_account(account_infor=account_infor)
+                    self.user.update(data=u, condition=['id', '=', u['id']])
+                driver = self.browser.get_driver(u['browser_account'])
+                t_service = tiktok_service(user=u,driver=driver)
+                result = t_service.register()
+                if(result==True):
+                    i+=1
+                    self.msg_sig.emit('第{}个用户注册成功'.format(i))
+                    self.pro_sig.emit(int((i)*100/total))
                 # if(u[''])
-            # except browserException as e:
-            #     print(e.message)
-            #     self.msg_sig.emit(e.message)
-            # finally:
-            #     self.user.update(data=u,condition=['id','=',u['id']])
-            #     continue
+            except browserException as e:
+                print(e.message)
+                self.msg_sig.emit(e.message)
+            finally:
+                self.user.update(data=u,condition=['id','=',u['id']])
+                continue
 class reflash_user(QThread):
     msg_sig = pyqtSignal(str)
     pro_sig = pyqtSignal(int)
