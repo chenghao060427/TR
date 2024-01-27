@@ -53,7 +53,7 @@ class get_comany_thread(QThread):
         self.pro_win = pro_win
         self.msg_sig.connect(self.pro_win.add_msg)
         self.pro_sig.connect(self.pro_win.process_set)
-        self.keyword_db=comany_keyword()
+        self.keyword_db=company_keyword()
     def run(self):
 
         # log_file = 'output/company'+time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())+'.csv'
@@ -67,7 +67,7 @@ class get_comany_thread(QThread):
 
             f_start_url = "https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/EntityName/{}/Page1?searchNameOrder={}"
 
-            keyword_model = comany_keyword()
+            keyword_model = company_keyword()
             name_list = keyword_model.select(order='id asc')
             random.shuffle(name_list)
             company_used_model = company_used()
@@ -90,7 +90,12 @@ class get_comany_thread(QThread):
                         time.sleep(1)
                         driver.get(urljoin(base_url, h))
                         company = get_company_detail(driver.page_source)
-                        if (re.match(r'^\d{2}-\d{7}$', company['ein']) and company_used_model.count(condition=['ein','=',company['ein']])):
+
+                        print(company)
+                        # print(type(company['name']))
+                        # print(type(company['address']))
+                        # exit(1)
+                        if (re.match(r'^\d{2}-\d{7}$', company['ein']) and company_used_model.count(condition=['ein','=',company['ein']])==0):
                             times -= 1
                             total_times -= 1
                             print(times)

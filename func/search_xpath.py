@@ -31,4 +31,4 @@ def get_company_detail(source):
     else:
         ein_html='NONE'
     address = " ".join(html.xpath('//span[contains(text(),"Principal Address")]/following-sibling::span[1]/div/text()'))
-    return {'name':name_html,'ein':ein_html,'address':address.replace("\n",'')}
+    return {'name':str(name_html),'ein':str(ein_html),'address':address.replace("\n",'')}
