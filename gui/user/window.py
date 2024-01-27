@@ -172,9 +172,9 @@ class user_window(QWidget):
         #         self.r_thread.start()
         # except:
         #     pass
-    def start_register(self,r_type='',num=1):
+    def start_register(self,r_type='邮箱注册',num=1):
         self.pro_win = process_window(p_win=self, f_sig=1)
-        self.r_thread = register_user_thread(count=num, pro_win=self.pro_win)
+        self.r_thread = register_user_thread(count=num, pro_win=self.pro_win,r_type=r_type)
         self.r_thread.start()
     def show_user_form(self):
 

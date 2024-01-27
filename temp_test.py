@@ -14,8 +14,14 @@ import _thread
 import pandas as pd
 import json
 from model.company_used import company_used
-from threads.comany import get_comany_thread
 
+from threads.comany import get_comany_thread
+import re
+s = 'j89t7m is your verification code'
+r = re.match(r'([a-z|A-Z|\d]{6}) is your verification code',s)
+print(r.group(1))
+exit(1)
+"true|[TikTok] 7397 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.|过期时间：2024-03-08 23:00:00"
 c_t = get_comany_thread(count=10)
 c_t.start()
 # comany_u = company_used()

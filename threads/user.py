@@ -65,13 +65,14 @@ class import_user_thread(QThread):
 class register_user_thread(QThread):
     msg_sig = pyqtSignal(str)
     pro_sig = pyqtSignal(int)
-    def __init__(self,count=0,pro_win=None):
+    def __init__(self,r_type='',count=0,pro_win=None):
         super().__init__()
         self.pro_win = pro_win
         self.msg_sig.connect(self.pro_win.add_msg)
         self.pro_sig.connect(self.pro_win.process_set)
         self.user=user()
         self.count=count
+        self.r_type=r_type
         self.browser = ads_browser()
     def run(self):
         if(self.count==0):
@@ -106,12 +107,18 @@ class register_user_thread(QThread):
                     }
                     print(u)
                     u['browser_account'] = self.browser.create_account(account_infor=account_infor)
+                    # u['browser_account'] = 'jdc1ree'
+
                     self.user.update(data=u, condition=['id', '=', u['id']])
                 driver = self.browser.get_driver(u['browser_account'])
                 t_service = tiktok_service(user=u,driver=driver)
-                result = t_service.register()
+                if(self.r_type=='邮箱注册'):
+                    result = t_service.register()
+                else:
+                    result = t_service.register_by_phone()
                 if(result==True):
                     i+=1
+                    t_service.logout()
                     self.msg_sig.emit('第{}个用户注册成功'.format(i))
                     self.pro_sig.emit(int((i)*100/total))
                 # if(u[''])

@@ -38,7 +38,7 @@ class tiktok_service():
         self.user_model = user_model()
         self.driver = driver
         pass
-    #注册tiktok用户
+    #注册tiktok用户（用邮箱）
     def register(self):
         # self.driver.get('https://seller-us-accounts.tiktok.com/account/register/form')
         self.driver.get('https://seller-us.tiktok.com/settle/verification?is_new_connect=0&shop_region=US')
@@ -98,10 +98,77 @@ class tiktok_service():
         self.user['status'] = 11
         self.user_model.update(data={'status':self.user['status']}, condition=['id', '=', self.user['id']])
         return True
+
+    # 注册tiktok用户（用手机号）
+    def register_by_phone(self):
+        self.driver.get('https://seller-us.tiktok.com/settle/verification?is_new_connect=0&shop_region=US')
+        print('填写邮箱')
+        ele = self.write_input(by=By.ID,condition='phone_email_input',value=self.user['phone'])
+        self.driver.execute_script("arguments[0].blur();", ele)
+        self.driver.implicitly_wait(1)
+        self.btn_click(by=By.XPATH,condition='//div[@class="theme-arco-checkbox-mask"]')
+        self.driver.implicitly_wait(1)
+        #点击按钮
+        self.btn_click(by=By.CLASS_NAME,condition='index__RedButton--xEvbb')
+        self.driver.implicitly_wait(10)
+        try:
+            repeat_time=5
+            while (repeat_time > 0):
+
+                sms_result = requests.get(self.user['sms_url'])
+                print(sms_result.text)
+                sms_content = sms_result.text
+                code_search = re.search(r'(\d{4}) is your verification code', sms_content)
+                if (code_search):
+                    sms_code = code_search.group(1)
+                    if (sms_code):
+                        for i in range(0, 4):
+                            self.write_input(by=By.ID, condition='verificationInput-{}'.format(i), value=sms_code[i])
+                        break
+                    break
+                else:
+                    repeat_time -= 1
+                    print('无法获取短信验证码，稍后重新获取，剩余尝试次数：{}'.format(repeat_time))
+                    time.sleep(60)
+        except:
+            print('无法获取短信验证码，需人工干预')
+        self.driver.implicitly_wait(300)
+        # 切换
+        self.btn_click(by=By.CLASS_NAME, condition='mt-60')
+        # 输入密码
+        self.write_input(by=By.XPATH, condition='//input[@type="password"]', value=self.user['pwd'])
+        self.write_input(by=By.ID, condition='repeat_password_input', value=self.user['pwd'])
+        self.btn_click(by=By.CLASS_NAME, condition='mt-60')
+
+        try:
+            self.skip_start_page()
+        except:
+            pass
+
+        self.btn_click(by=By.XPATH, condition='//div[contains(text(),"Corporation")]')
+        self.btn_click(by=By.XPATH, condition='//span[text()="Next"]')
+
+        self.user['status'] = 3
+        self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+
+        self.write_company_infor()
+        self.user['status'] = 5
+        self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+        self.write_business_infor()
+        self.user['status'] = 7
+        self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+        return
+        self.write_shop_infor_by_phone()
+        self.user['status'] = 9
+        self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+        self.write_tax_infor()
+        self.user['status'] = 11
+        self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+        return True
     #跳过当前页
     def skip_start_page(self):
         print('自动跳转执行')
-        wait = WebDriverWait(self.driver,100)
+        wait = WebDriverWait(self.driver,20)
         wait.until(EC.presence_of_element_located((By.XPATH,'//button[contains(@class,"w-[350px]")]')))
         # if(re.search(r'https://seller-us.tiktok.com/settle/landing/',self.driver.current_url)):
         self.btn_click(by=By.XPATH,condition='//button[contains(@class,"w-[350px]")]',type=2)
@@ -110,24 +177,32 @@ class tiktok_service():
     def write_company_infor(self):
         wait = WebDriverWait(self.driver,100)
         wait.until(EC.presence_of_element_located((By.XPATH,'//input[@placeholder="Enter the business name"]')))
-        self.doownload_html(filename='output/company_infor.html')
+        # self.doownload_html(filename='output/company_infor.html')
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Enter the business name"]',value=self.user['comany_name'])
         #EIN码
         ein_num = self.user['ein'].split('-')
         if(len(ein_num)==2):
             self.write_input(by=By.XPATH,condition='//input[@placeholder="XX"]',value=ein_num[0])
+            self.driver.implicitly_wait(random.randint(1,3))
             self.write_input(by=By.XPATH,condition='//input[@placeholder="XXXXXXX"]',value=ein_num[1])
+            self.driver.implicitly_wait(random.randint(1,3))
+
         else:
             print('Ein码读取失败，需人工干预')
             self.driver.implicitly_wait(300)
         self.btn_click(by=By.XPATH,condition='//div[contains(text(),"Yes, this business has at least 1 beneficial owner")]')
+        self.driver.implicitly_wait(random.randint(1, 3))
+
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Street address"]',value=self.user['comnay_addr'])
+        self.driver.implicitly_wait(0.5)
 
         self.btn_click(by=By.XPATH,condition='//div[@id="theme-arco-select-popup-0"]/div/div/li[1]')
         checked = self.driver.find_element(by=By.XPATH,value='//input[@type="checkbox"]')
         if(checked.get_attribute('checked')==None):
             self.btn_click(by=By.XPATH,condition='//span[contains(text(),"I certify that I do not have a business address and only")]')
         self.btn_click(by=By.XPATH,condition='//div[text()="No"]')
+
+        self.driver.implicitly_wait(random.randint(2,5))
         self.btn_click(by=By.XPATH,condition='//span[text()="Next"]')
         print('公司信息输入完成')
 
@@ -153,10 +228,15 @@ class tiktok_service():
         if(checked.get_attribute('checked')==None):
             self.btn_click(by=By.XPATH,condition='//div[text()="Business representative"]')
         print('选择Business representative结束，开始填写姓名')
+        self.driver.implicitly_wait(random.randint(1, 3))
 
         name_list = self.user['realname'].split(' ')
         self.write_input(by=By.XPATH,condition='//input[@placeholder="First name"]',value=name_list[0])
+        self.driver.implicitly_wait(1)
+
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Last name"]',value=name_list[1])
+        self.driver.implicitly_wait(random.randint(1, 3))
+
         print('填写姓名结束，开始填写出生日期')
         birth = str(self.user['birth'])[0:10]
         if(re.search(r'\d{4}-\d{1,2}-\d{1,2}',birth)):
@@ -196,23 +276,31 @@ class tiktok_service():
             except:
                 print(2)
         print('填写出生日期')
+        self.driver.implicitly_wait(random.randint(1, 3))
+
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Street address"]',value=self.user['address'])
+        self.driver.implicitly_wait(random.randint(1, 3))
+
         print('填写地址')
         self.btn_click(by=By.XPATH,condition='//div[@id="theme-arco-select-popup-7"]/div/div/li[1]')
         print('填写SSN')
+        self.driver.implicitly_wait(random.randint(1, 3))
+
         self.write_input(by=By.XPATH,condition='//input[@placeholder="XXXX"]',value=str(self.user['ssn'])[-4:])
+        self.driver.implicitly_wait(random.randint(1, 3))
 
         self.btn_click(by=By.XPATH,condition='//span[text()="Next"]')
 
         print('商务信息输入完成')
         pass
-    #填写商店信息
+
     def check_ele_exit(self,by,condition):
         try:
             self.driver.find_element(by=by,value=condition)
             return True
         except:
             return False
+    # 填写商店信息
     def write_shop_infor(self):
         wait = WebDriverWait(self.driver,30)
         wait.until(EC.presence_of_element_located((By.XPATH,'//div[text()="Shop name"]')))
@@ -224,6 +312,7 @@ class tiktok_service():
             for i in range(len(self.user['comany_name'])):
                 company_name=company_name+self.str_list[random.randint(0,25)]
         self.write_input(by=By.XPATH,condition='//input[contains(@placeholder,"shop name")]',value=company_name)
+        self.driver.implicitly_wait(random.randint(1, 3))
         try:
             print('选择店铺类型')
             self.driver.find_element(by=By.XPATH,value='//span[@theme-arco-select-view-selector"]')
@@ -278,6 +367,74 @@ class tiktok_service():
         print("店铺信息输入完成")
         #https://seller-us.tiktok.com/homepage
         pass
+    # 填写商店信息(手机注册)
+    def write_shop_infor_by_phone(self):
+        wait = WebDriverWait(self.driver,30)
+        wait.until(EC.presence_of_element_located((By.XPATH,'//div[text()="Shop name"]')))
+        # self.doownload_html(filename='output/shop_infor.html')
+        company_list = re.findall(r'[a-z|A-Z]+',self.user['comany_name'])
+        company_name= (''.join(company_list))
+        if(len(company_list)==0):
+            company_name=''
+            for i in range(len(self.user['comany_name'])):
+                company_name=company_name+self.str_list[random.randint(0,25)]
+        self.write_input(by=By.XPATH,condition='//input[contains(@placeholder,"shop name")]',value=company_name)
+        self.driver.implicitly_wait(random.randint(1, 3))
+        try:
+            print('选择店铺类型')
+            self.driver.find_element(by=By.XPATH,value='//span[@theme-arco-select-view-selector"]')
+            self.btn_click(by=By.XPATH,condition='//span[@class="theme-arco-select-view-selector"]',type=2)
+            self.select_action(by=By.XPATH, condition='//span[text()="Fashion Accessories"]')
+            print('选择店铺类型结束')
+        except:
+            print('选择店铺类型异常处理')
+            service_type_input = self.driver.find_element(by=By.XPATH,value='//input[@placeholder="Choose the primary product/service type"]')
+            if(service_type_input.get_attribute('value')):
+                service_type_input.send_keys(Keys.CONTROL + "a")
+                service_type_input.send_keys(Keys.DELETE)
+            service_type_input.click()
+            self.select_action(by=By.XPATH,condition='//span[text()="Fashion Accessories"]')
+            print('选择结束')
+        # try:
+        #     self.driver.find_element(by=By.XPATH,value='//div[text()="Use below"]')
+        # except:
+
+        self.driver.implicitly_wait(random.randint(1,3))
+
+        if(re.match(r'Use below',self.driver.page_source)==None):
+            print('填写邮箱')
+
+            self.write_input(by=By.XPATH,condition='//input[@placeholder="Enter your email address"]',value=self.user['email'])
+            self.driver.implicitly_wait(random.randint(1,3))
+
+            resend_times=5
+            while(resend_times>0):
+
+                self.btn_click(by=By.XPATH,condition='//div[text()="Resend code" or text()="Send code"]')
+                time.sleep(5)
+
+                code = self.get_verfication_code_by_email(end_time=time.time()-3600)
+                if(code):
+                    self.write_input(by=By.XPATH,condition='//input[@placeholder="Enter the verification code"]',value=code)
+                    break
+                else:
+                    resend_times-=1
+                    print('无法获取邮箱验证码，稍后重新获取，剩余尝试次数：{}'.format(resend_times))
+                    time.sleep(60)
+            self.driver.implicitly_wait(random.randint(1,3))
+            self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-default")]')
+            self.driver.implicitly_wait(7)
+            if(self.check_ele_exit(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')):
+                self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')
+            else:
+                self.btn_click(by=By.XPATH,
+                               condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-default")]')
+                self.btn_click(by=By.XPATH,
+                               condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')
+
+        print("店铺信息输入完成")
+        #https://seller-us.tiktok.com/homepage
+        pass
     #填写相关文字信息
     def write_tax_infor(self):
         print('开始输入税务信息')
@@ -317,10 +474,11 @@ class tiktok_service():
             input.send_keys(Keys.CONTROL + "a")
             input.send_keys(Keys.DELETE)
         input.send_keys(value)
+        return input
         pass
     #选择选项
     def select_action(self,by,condition):
-        self.btn_click(by,condition)
+        return self.btn_click(by,condition)
         pass
     #点击事件
     @retry(tries=3, delay=4)
@@ -333,7 +491,34 @@ class tiktok_service():
             self.driver.execute_script("arguments[0].click();", btn)
         else:
             btn.click()
+        return btn
         pass
+    #验证邮箱
+    def get_verfication_code_by_email(self,end_time=0):
+        client = imapclient.IMAPClient('outlook.office365.com', port=993)
+
+        client.login(email = self.user['email'], password = self.user['email_pwd'])
+        folders = client.list_folders()
+        # print(folders)
+        # exit(11)
+        for f in ['INBOX','Junk']:
+            client.select_folder(folder=f)
+
+            messages = client.search(['FROM', 'sellersupport@shop.tiktok.com'])
+            # print(messages)
+            messages.reverse()
+            for _sm in messages:
+                msgdict = client.fetch(_sm, ['INTERNALDATE', 'ENVELOPE'])  # 获取邮件内容
+                # mailbody = msgdict[_sm][b'BODY[]']
+                # print(msgdict[_sm])
+                if (end_time <= int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
+                    s = re.match(r'([a-z|A-Z|\d]{6}) is your verification code', msgdict[_sm][b'ENVELOPE'].subject.decode())
+                    # s = re.search(r'\d{6}', msgdict[_sm][b'ENVELOPE'].subject.decode())
+                    if (s != None):
+                        print(s.group(1))
+                        return s.group(1)
+
+        return None
 
     #获取邮箱验证码
     def get_register_code(self,email='', password='', end_time=''):
