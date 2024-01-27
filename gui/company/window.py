@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QFormLayout,QTableWidget,QLabel,QLineEdit,QWidget,QP
     QHBoxLayout,QApplication,QAbstractItemView,QHeaderView,QTableWidgetItem,QFileDialog
 from PyQt5.QtCore import QThread,pyqtSignal,QMutex
 import sys
-from model.comany_keyword import comany_keyword
+from model.company_keyword import company_keyword
 import pandas as pd
 import time,re
 from gui.process_window import process_window
@@ -61,7 +61,7 @@ class keyword_window(QWidget):
 
     def get_keyword_list(self):
         if(self.keyword_model==None):
-            self.keyword_model = comany_keyword()
+            self.keyword_model = company_keyword()
 
         return self.keyword_model.select()
         pass

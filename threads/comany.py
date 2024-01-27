@@ -3,11 +3,12 @@ import time,re
 from PyQt5.QtCore import QThread,pyqtSignal,QMutex
 import pandas as pd
 from urllib.parse import urljoin
-from model.comany_keyword import comany_keyword
+from model.company_keyword import company_keyword
 from func.search_xpath import get_company_list,get_company_detail
 from actions.ads_browser import ads_browser
 import random
 import os
+from model.company_used import company_used
 class import_keyword_thread(QThread):
     #表格和数据库字典
 
@@ -19,7 +20,7 @@ class import_keyword_thread(QThread):
         self.pro_win = pro_win
         self.msg_sig.connect(self.pro_win.add_msg)
         self.pro_sig.connect(self.pro_win.process_set)
-        self.keyword_db=comany_keyword()
+        self.keyword_db=company_keyword()
     def run(self):
         with open(self.filename) as f:
             keyword_list = []
@@ -69,7 +70,7 @@ class get_comany_thread(QThread):
             keyword_model = comany_keyword()
             name_list = keyword_model.select(order='id asc')
             random.shuffle(name_list)
-
+            company_used_model = company_used()
             # name = f.readline()
             # n = re.sub(r'\s?','',name)
             # n = n.upper()
@@ -89,12 +90,13 @@ class get_comany_thread(QThread):
                         time.sleep(1)
                         driver.get(urljoin(base_url, h))
                         company = get_company_detail(driver.page_source)
-                        if (re.match(r'^\d{2}-\d{7}$', company['ein'])):
+                        if (re.match(r'^\d{2}-\d{7}$', company['ein']) and company_used_model.count(condition=['ein','=',company['ein']])):
                             times -= 1
                             total_times -= 1
                             print(times)
                             print(total_times)
                             company_list.append(company)
+                            company_used_model.create(company)
                             self.msg_sig.emit('第{}条信息采集成功'.format(self.count-total_times))
                             self.pro_sig.emit(int((self.count-total_times) * 100 / self.count))
                     start_url = urljoin(base_url, next_href)

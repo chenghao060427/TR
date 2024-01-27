@@ -2,7 +2,7 @@ import time
 
 from actions.ads_browser import ads_browser,browserException
 import model.user
-from model.comany_keyword import comany_keyword
+from model.company_keyword import company_keyword
 from actions.tiktok import tiktok_service
 from actions.ads_browser import ads_browser
 import random
@@ -13,6 +13,11 @@ from retry import retry
 import _thread
 import pandas as pd
 import json
+from model.company_used import company_used
+
+comany_u = company_used()
+comany_u.count(condition=['ein','=','0'])
+exit()
 config = json.load(open('.env','r',encoding='utf-8'))
 print(config)
 user = model.user.user()
