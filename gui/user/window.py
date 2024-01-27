@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QFormLayout,QTableWidget,QLabel,QLineEdit,QWidget,QPushButton,QVBoxLayout,\
     QHBoxLayout,QApplication,QAbstractItemView,QHeaderView,QTableWidgetItem,QFileDialog,QInputDialog,QMessageBox,\
-    QCheckBox
+    QCheckBox,QComboBox,QSpinBox
 
 from PyQt5.QtCore import QThread,pyqtSignal,QMutex,Qt
 import sys
@@ -162,14 +162,20 @@ class user_window(QWidget):
 
     def show_register_form(self):
         unregister_count = self.user_model.count(condition=['status','=',1])
-        try:
-            num,ok = QInputDialog.getInt(self,"新注册用户数","输入数量",value=unregister_count,min=0,max=unregister_count)
-            if ok:
-                self.pro_win = process_window(p_win=self,f_sig=1)
-                self.r_thread = register_user_thread(count=num,pro_win=self.pro_win)
-                self.r_thread.start()
-        except:
-            pass
+        self.form_wind = form_window(self,unregister_count=unregister_count)
+
+        # try:
+        #     num,ok = QInputDialog.getInt(self,"新注册用户数","输入数量",value=unregister_count,min=0,max=unregister_count)
+        #     if ok:
+        #         self.pro_win = process_window(p_win=self,f_sig=1)
+        #         self.r_thread = register_user_thread(count=num,pro_win=self.pro_win)
+        #         self.r_thread.start()
+        # except:
+        #     pass
+    def start_register(self,r_type='',num=1):
+        self.pro_win = process_window(p_win=self, f_sig=1)
+        self.r_thread = register_user_thread(count=num, pro_win=self.pro_win)
+        self.r_thread.start()
     def show_user_form(self):
 
         fname,ok = QFileDialog.getOpenFileName(self,'选择文件','C:\\','*.xls')
@@ -192,6 +198,47 @@ class user_window(QWidget):
         self.update()
     #显示表单
 
+class form_window(QWidget):
+    def __init__(self,p_window=None,unregister_count=0):
+        self.p_win =p_window
+        super().__init__()
+        self.resize(400,100)
+
+        self.setWindowTitle("注册选项")
+
+        formlayout = QFormLayout()
+        lable1 = QLabel("注册方式")
+
+        self.r_type = QComboBox()
+        self.r_type.addItems(['邮箱注册','手机号注册'])
+        lable2 = QLabel("注册用户数")
+
+        self.c_input= QSpinBox()
+        self.c_input.setMaximum(unregister_count)
+        self.c_input.setMinimum(1)
+
+        formlayout.addRow(lable1,self.r_type)
+        formlayout.addRow(lable2, self.c_input)
+        vlayout = QVBoxLayout(self)
+        vlayout.addLayout(formlayout)
+
+        s_btn = QPushButton('确认')
+        s_btn.setFixedWidth(100)
+        c_btn = QPushButton('取消')
+        c_btn.setFixedWidth(100)
+        hlayout = QHBoxLayout(self)
+        hlayout.addWidget(s_btn,stretch=0)
+        hlayout.addWidget(c_btn,stretch=0)
+        vlayout.addLayout(hlayout,stretch=1)
+        s_btn.clicked.connect(self.sure)
+        c_btn.clicked.connect(self.cancle)
+        self.show()
+    def cancle(self):
+        self.close()
+    def sure(self):
+        print(self.r_type.currentText())
+        print(self.c_input.text())
+        self.p_win.start_register(r_type=self.r_type.currentText(),num=self.c_input.text())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
