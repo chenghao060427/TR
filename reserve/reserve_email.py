@@ -1,5 +1,5 @@
 #用于邮件解码
-import pyzmail
+# import pyzmail
 #用于登录
 import imapclient
 
@@ -39,7 +39,7 @@ import imapclient
 #                 return 'erro'
 
 client = imapclient.IMAPClient('outlook.office365.com',port=993)
-client.login('ccellzfjzwfo@hotmail.com','qIwQpV101')
+client.login('mbgfwocbbo@hotmail.com','uOdVxL889')
 client.select_folder('INBOX', readonly=True)
 messages = client.search(['FROM','sellersupport@shop.tiktok.com'])
 for _sm in messages:

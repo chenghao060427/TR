@@ -55,17 +55,24 @@ def get_register_code(email='',password='',end_time=''):
         # messages = client.search(['FROM','sellersupport@shop.tiktok.com'])
         print(messages)
         messages.reverse()
+
+        current_time = 0
+        current_content=''
         for _sm in messages:
             msgdict = client.fetch(_sm, ['INTERNALDATE','ENVELOPE'])  # 获取邮件内容
+
             # mailbody = msgdict[_sm][b'BODY[]']
-            # print(msgdict[_sm][b'ENVELOPE'])
-            if(end_time<int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
-                return msgdict[_sm][b'ENVELOPE'].subject.decode()
-                # s = re.search(r'\d{6}',msgdict[_sm][b'ENVELOPE'].subject.decode())
-                # if(s != None):
-                #     print(s.group())
-                #     return s.group()
+            # print(msgdict[_sm][b'INTERNALDATE'])
+
+            if(current_time<int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
+
+                current_time = int(msgdict[_sm][b'INTERNALDATE'].timestamp())
+                current_content =  msgdict[_sm][b'ENVELOPE'].subject.decode()
+        s = re.search(r'\d{6}',current_content)
+        if(s != None):
+            print(s.group())
+            return s.group()
     client.logout()
     return None
 if __name__ == '__main__':
-    print(get_register_code('uywgene@hotmail.com','BFZRawyd0910',end_time=0))
+    print(get_register_code('mbgfwocbbo@hotmail.com','uOdVxL889',end_time=int(time.time())-36000))

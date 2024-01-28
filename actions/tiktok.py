@@ -9,6 +9,11 @@ import random
 import requests
 from model.user import user as user_model
 from retry import retry
+import json
+from .ads_browser import browserException
+import base64
+from model.verification_code_log import verification_code_log
+from selenium.webdriver.common.action_chains import ActionChains
 class tiktok_service():
     __instans = None
     def __new__(cls, *args, **kwargs):
@@ -37,6 +42,7 @@ class tiktok_service():
         self.user=user
         self.user_model = user_model()
         self.driver = driver
+        self.driver.implicitly_wait(100)
         pass
     #注册tiktok用户（用邮箱）
     def register(self):
@@ -44,13 +50,14 @@ class tiktok_service():
         self.driver.get('https://seller-us.tiktok.com/settle/verification?is_new_connect=0&shop_region=US')
         print('填写邮箱')
         self.write_input(by=By.ID,condition='phone_email_input',value=self.user['email'])
-        self.driver.implicitly_wait(1)
+
 
         #点击按钮
         self.btn_click(by=By.CLASS_NAME,condition='index__RedButton--xEvbb')
 
-        self.driver.implicitly_wait(10)
-        repeat_time=5
+        self.verification_code_ai()
+        time.sleep(random.uniform(5.0,7.0))
+        repeat_time = 5
         try:
             while(repeat_time>0):
                 if(self.check_ele_exit(by=By.ID,condition='verificationInput-0')):
@@ -63,10 +70,16 @@ class tiktok_service():
                         repeat_time-=1
                         print('获取验证码失败,尝试重新获取，剩余重复次数：{}'.format(repeat_time))
                         time.sleep(10)
-            raise
+
         except:
             print('获取验证码失败，需人工干预')
-        self.driver.implicitly_wait(300)
+            if (self.account_registerted_check()):
+                self.user['status'] = 11
+                # self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
+                return False
+
+            time.sleep(300)
+
         #切换
         self.btn_click(by=By.CLASS_NAME,condition='mt-60')
         #输入密码
@@ -105,12 +118,9 @@ class tiktok_service():
         print('填写手机号')
         ele = self.write_input(by=By.ID,condition='phone_email_input',value=self.user['phone'])
         self.driver.execute_script("arguments[0].blur();", ele)
-        self.driver.implicitly_wait(1)
         self.btn_click(by=By.XPATH,condition='//div[@class="theme-arco-checkbox-mask"]')
-        self.driver.implicitly_wait(1)
         #点击按钮
         self.btn_click(by=By.CLASS_NAME,condition='index__RedButton--xEvbb')
-        self.driver.implicitly_wait(10)
         try:
             repeat_time=5
             while (repeat_time > 0):
@@ -132,7 +142,6 @@ class tiktok_service():
                     time.sleep(60)
         except:
             print('无法获取短信验证码，需人工干预')
-        self.driver.implicitly_wait(300)
         # 切换
         self.btn_click(by=By.CLASS_NAME, condition='mt-60')
         # 输入密码
@@ -165,6 +174,71 @@ class tiktok_service():
         self.user['status'] = 11
         self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
         return True
+    def account_registerted_check(self):
+        print('检查登录')
+        if(re.search(r'index__heading--G46fY',self.driver.page_source)):
+            print('检查账号已经存在')
+            return True
+        print('账号不存在')
+        return False
+    def verification_code_ai(self):
+        try:
+            log_model = verification_code_log()
+
+            wait = WebDriverWait(self.driver, 5)
+            wait.until(EC.presence_of_element_located((By.XPATH,'//img[@id="captcha-verify-image"]')))
+            icon_img= self.driver.find_element(by=By.XPATH,value='//img[@id="captcha-verify-image"]')
+            img_url = icon_img.get_attribute('src')
+            if (log_model.count(['code_url','=',img_url])):
+                log_list = log_model.select(condition=['code_url','=',img_url])
+                cracking_result = json.loads(log_list[0]['data'])
+            else:
+                img_name = re.search(r'/([a-z|A-Z|_|\d]+?)\.jpg',img_url)
+                if(img_name):
+                    time.sleep(random.uniform(4.9,8.2))
+                    img_path = 'verification_code/{}.png'.format(img_name.group(1))
+                    icon_img.screenshot(img_path)
+                    cracking_result = self.verification_code_cracking(img_path=img_path,type=2301)
+                else:
+                    raise browserException(message='无法获取到验证码图片')
+            if(cracking_result['code']==0):
+                #保存进入数据库
+                log_model.create({'code_url':img_url,
+                                  'type':2301,
+                                  'return_msg':json.dumps(cracking_result),
+                                  'created_at':time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())})
+                pos1, pos2 = cracking_result['data']['recognition'].split('|')
+                pos1_x, pos1_y = pos1.split(',')
+                pos2_x, pos2_y = pos2.split(',')
+                action = ActionChains(self.driver)
+                action.move_to_element_with_offset(icon_img,int(pos1_x)-170,int(pos1_y)-106).click().perform()
+                action.move_to_element_with_offset(icon_img, int(pos2_x) - 170, int(pos2_y) - 106).click().perform()
+                time.sleep(random.uniform(0.5,1.1))
+                self.btn_click(by=By.XPATH,condition='//div[contains(@class,"llvWCE")]')
+            else:
+                raise browserException(message=cracking_result['message'])
+
+        except Exception as e:
+            print(e)
+            print('验证码自动识别失败，需人工完成')
+            time.sleep(random.randint(10,20))
+
+
+    def verification_code_cracking(self,img_path, type):
+        api_post_url = "http://www.bingtop.com/ocr/upload/"
+        config = json.load(open('.env', 'r', encoding='utf-8'))
+        with open(img_path, 'rb') as pic_file:
+            img64 = base64.b64encode(pic_file.read())
+        params = {
+            "username": config['Bingtop_User'],
+            "password": config['Bingtop_Pwd'],
+            "captchaData": img64,
+            "captchaType": type
+        }
+        response = requests.post(api_post_url, data=params)
+        dictdata = json.loads(response.text)
+        print(dictdata)
+        return dictdata
     #跳过当前页
     def skip_start_page(self):
         print('自动跳转执行')
@@ -183,18 +257,14 @@ class tiktok_service():
         ein_num = self.user['ein'].split('-')
         if(len(ein_num)==2):
             self.write_input(by=By.XPATH,condition='//input[@placeholder="XX"]',value=ein_num[0])
-            self.driver.implicitly_wait(random.randint(1,3))
             self.write_input(by=By.XPATH,condition='//input[@placeholder="XXXXXXX"]',value=ein_num[1])
-            self.driver.implicitly_wait(random.randint(1,3))
 
         else:
             print('Ein码读取失败，需人工干预')
-            self.driver.implicitly_wait(300)
+            time.sleep(300)
         self.btn_click(by=By.XPATH,condition='//div[contains(text(),"Yes, this business has at least 1 beneficial owner")]')
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Street address"]',value=self.user['comnay_addr'])
-        self.driver.implicitly_wait(0.5)
 
         self.btn_click(by=By.XPATH,condition='//div[@id="theme-arco-select-popup-0"]/div/div/li[1]')
         checked = self.driver.find_element(by=By.XPATH,value='//input[@type="checkbox"]')
@@ -202,7 +272,6 @@ class tiktok_service():
             self.btn_click(by=By.XPATH,condition='//span[contains(text(),"I certify that I do not have a business address and only")]')
         self.btn_click(by=By.XPATH,condition='//div[text()="No"]')
 
-        self.driver.implicitly_wait(random.randint(2,5))
         self.btn_click(by=By.XPATH,condition='//span[text()="Next"]')
         print('公司信息输入完成')
 
@@ -228,14 +297,11 @@ class tiktok_service():
         if(checked.get_attribute('checked')==None):
             self.btn_click(by=By.XPATH,condition='//div[text()="Business representative"]')
         print('选择Business representative结束，开始填写姓名')
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         name_list = self.user['realname'].split(' ')
         self.write_input(by=By.XPATH,condition='//input[@placeholder="First name"]',value=name_list[0])
-        self.driver.implicitly_wait(1)
 
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Last name"]',value=name_list[1])
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         print('填写姓名结束，开始填写出生日期')
         birth = str(self.user['birth'])[0:10]
@@ -276,18 +342,14 @@ class tiktok_service():
             except:
                 print(2)
         print('填写出生日期')
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         self.write_input(by=By.XPATH,condition='//input[@placeholder="Street address"]',value=self.user['address'])
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         print('填写地址')
         self.btn_click(by=By.XPATH,condition='//div[@id="theme-arco-select-popup-7"]/div/div/li[1]')
         print('填写SSN')
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         self.write_input(by=By.XPATH,condition='//input[@placeholder="XXXX"]',value=str(self.user['ssn'])[-4:])
-        self.driver.implicitly_wait(random.randint(1, 3))
 
         self.btn_click(by=By.XPATH,condition='//span[text()="Next"]')
 
@@ -312,7 +374,6 @@ class tiktok_service():
             for i in range(len(self.user['comany_name'])):
                 company_name=company_name+self.str_list[random.randint(0,25)]
         self.write_input(by=By.XPATH,condition='//input[contains(@placeholder,"shop name")]',value=company_name)
-        self.driver.implicitly_wait(random.randint(1, 3))
         try:
             print('选择店铺类型')
             self.driver.find_element(by=By.XPATH,value='//span[@theme-arco-select-view-selector"]')
@@ -355,7 +416,6 @@ class tiktok_service():
                     print('无法获取短信验证码，稍后重新获取，剩余尝试次数：{}'.format(resend_times))
                     time.sleep(60)
             self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-default")]')
-            self.driver.implicitly_wait(7)
             if(self.check_ele_exit(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')):
                 self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')
             else:
@@ -379,7 +439,6 @@ class tiktok_service():
             for i in range(len(self.user['comany_name'])):
                 company_name=company_name+self.str_list[random.randint(0,25)]
         self.write_input(by=By.XPATH,condition='//input[contains(@placeholder,"shop name")]',value=company_name)
-        self.driver.implicitly_wait(random.randint(1, 3))
         try:
             print('选择店铺类型')
             self.driver.find_element(by=By.XPATH,value='//span[@theme-arco-select-view-selector"]')
@@ -399,13 +458,11 @@ class tiktok_service():
         #     self.driver.find_element(by=By.XPATH,value='//div[text()="Use below"]')
         # except:
 
-        self.driver.implicitly_wait(random.randint(1,3))
 
         if(re.match(r'Use below',self.driver.page_source)==None):
             print('填写邮箱')
 
             self.write_input(by=By.XPATH,condition='//input[@placeholder="Enter your email address"]',value=self.user['email'])
-            self.driver.implicitly_wait(random.randint(1,3))
 
             resend_times=5
             while(resend_times>0):
@@ -421,9 +478,9 @@ class tiktok_service():
                     resend_times-=1
                     print('无法获取邮箱验证码，稍后重新获取，剩余尝试次数：{}'.format(resend_times))
                     time.sleep(60)
-            self.driver.implicitly_wait(random.randint(1,3))
+
             self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-default")]')
-            self.driver.implicitly_wait(7)
+
             if(self.check_ele_exit(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')):
                 self.btn_click(by=By.XPATH,condition='//button[contains(@class,"theme-arco-btn-primary theme-arco-btn-size-large")]')
             else:
@@ -440,7 +497,7 @@ class tiktok_service():
         print('开始输入税务信息')
         # self.driver.get('https://seller-us.tiktok.com/homepage?shop_region=US')
         self.btn_click(by=By.XPATH,condition='//p[text()="Add tax information"]/../../following-sibling::*[1]/button',type=2)
-        time.sleep(1)
+
         while 1:
             if(len(self.driver.window_handles)==2):
                 break
@@ -457,10 +514,10 @@ class tiktok_service():
             pass
         self.btn_click(by=By.XPATH,condition='//div[contains(@class,"SubmitBar__ButtonArea-sc-1fu192b-0")]/button[contains(@class,"theme-arco-btn theme-arco-btn-primary")]',type=2)
         self.write_input(by=By.XPATH,condition='//input[@name="signature"]',value=self.user['realname'])
-        self.driver.implicitly_wait(3)
+
         print('提交保存按钮点击')
         self.btn_click(by=By.XPATH,condition='//div[contains(@class,"button-area")]/button[contains(@class,"theme-arco-btn-primary")]')
-        self.driver.implicitly_wait(5)
+
         if(re.match(r'signature',self.driver.page_source)):
             print('重复提交保存按钮点击')
             self.write_input(by=By.XPATH,condition='//input[@name="signature"]',value=self.user['realname'])
@@ -474,6 +531,7 @@ class tiktok_service():
             input.send_keys(Keys.CONTROL + "a")
             input.send_keys(Keys.DELETE)
         input.send_keys(value)
+        time.sleep(random.uniform(0.5,1.5))
         return input
         pass
     #选择选项
@@ -491,6 +549,7 @@ class tiktok_service():
             self.driver.execute_script("arguments[0].click();", btn)
         else:
             btn.click()
+        time.sleep(random.uniform(0.5,1.5))
         return btn
         pass
     #验证邮箱
@@ -521,13 +580,14 @@ class tiktok_service():
         return None
 
     #获取邮箱验证码
+    @retry(tries=5,delay=20)
     def get_register_code(self,email='', password='', end_time=''):
         client = imapclient.IMAPClient('outlook.office365.com', port=993)
-        # print(email)
-        # print(password)
+        print(email)
+        print(password)
         client.login(email, password)
         folders = client.list_folders()
-        # print(folders)
+        print(folders)
         # exit(11)
         for f in ['INBOX','Junk']:
             client.select_folder(folder=f)
@@ -535,15 +595,21 @@ class tiktok_service():
             messages = client.search(['FROM', 'register@account.tiktok.com'])
             # print(messages)
             messages.reverse()
+            current_time = 0
+            current_content = ''
             for _sm in messages:
                 msgdict = client.fetch(_sm, ['INTERNALDATE', 'ENVELOPE'])  # 获取邮件内容
+
                 # mailbody = msgdict[_sm][b'BODY[]']
-                # print(msgdict[_sm])
-                if (end_time <= int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
-                    s = re.search(r'\d{6}', msgdict[_sm][b'ENVELOPE'].subject.decode())
-                    if (s != None):
-                        print(s.group())
-                        return s.group()
+                # print(msgdict[_sm][b'INTERNALDATE'])
+
+                if (current_time < int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
+                    current_time = int(msgdict[_sm][b'INTERNALDATE'].timestamp())
+                    current_content = msgdict[_sm][b'ENVELOPE'].subject.decode()
+            s = re.search(r'\d{6}', current_content)
+            if (s != None):
+                print(s.group())
+                return s.group()
 
         return None
     #登录tiktok
@@ -586,7 +652,14 @@ class tiktok_service():
         with open(filename,'w',encoding='utf-8') as f:
             f.write(self.driver.page_source)
             f.close()
-
+    #检查审核状态
+    def wait_login_status(self):
+        #切换到主页面
+        for w in self.driver.window_handles:
+            self.driver.switch_to.window(w)
+            if(self.driver.current_url==''):
+                break
+        pass
     def close_windows(self):
         for w in self.driver.window_handles:
             self.driver.switch_to.window(w)

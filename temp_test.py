@@ -17,13 +17,12 @@ from model.company_used import company_used
 
 from threads.comany import get_comany_thread
 import re
-s = 'j89t7m is your verification code'
-r = re.match(r'([a-z|A-Z|\d]{6}) is your verification code',s)
-print(r.group(1))
-exit(1)
-"true|[TikTok] 7397 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.|过期时间：2024-03-08 23:00:00"
-c_t = get_comany_thread(count=10)
-c_t.start()
+j = {'code': 0, 'message': '', 'data': {'captchaId': '2301-66cca14b-c52a-422f-84fd-11f736b38617', 'captchaType': '2301', 'recognition': '175,171|85,168'}}
+pos1,pos2 = j['data']['recognition'].split('|')
+pos1_x,pos1_y = pos1.split(',')
+pos2_x,pos2_y = pos2.split(',')
+print(j['code'])
+# print(type(json.dumps(j)))
 # comany_u = company_used()
 # comany_u.count(condition=['ein','=','0'])
 # exit()
