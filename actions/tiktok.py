@@ -102,7 +102,7 @@ class tiktok_service():
     # 注册tiktok用户（用手机号）
     def register_by_phone(self):
         self.driver.get('https://seller-us.tiktok.com/settle/verification?is_new_connect=0&shop_region=US')
-        print('填写邮箱')
+        print('填写手机号')
         ele = self.write_input(by=By.ID,condition='phone_email_input',value=self.user['phone'])
         self.driver.execute_script("arguments[0].blur();", ele)
         self.driver.implicitly_wait(1)
@@ -157,7 +157,7 @@ class tiktok_service():
         self.write_business_infor()
         self.user['status'] = 7
         self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
-        return
+
         self.write_shop_infor_by_phone()
         self.user['status'] = 9
         self.user_model.update(data={'status': self.user['status']}, condition=['id', '=', self.user['id']])
@@ -413,7 +413,7 @@ class tiktok_service():
                 self.btn_click(by=By.XPATH,condition='//div[text()="Resend code" or text()="Send code"]')
                 time.sleep(5)
 
-                code = self.get_verfication_code_by_email(end_time=time.time()-3600)
+                code = self.get_verfication_code_by_email(end_time=int(time.time())-3600)
                 if(code):
                     self.write_input(by=By.XPATH,condition='//input[@placeholder="Enter the verification code"]',value=code)
                     break
@@ -497,7 +497,7 @@ class tiktok_service():
     def get_verfication_code_by_email(self,end_time=0):
         client = imapclient.IMAPClient('outlook.office365.com', port=993)
 
-        client.login(email = self.user['email'], password = self.user['email_pwd'])
+        client.login(username = self.user['email'], password = self.user['email_pwd'])
         folders = client.list_folders()
         # print(folders)
         # exit(11)
@@ -586,4 +586,9 @@ class tiktok_service():
         with open(filename,'w',encoding='utf-8') as f:
             f.write(self.driver.page_source)
             f.close()
+
+    def close_windows(self):
+        for w in self.driver.window_handles:
+            self.driver.switch_to.window(w)
+            self.driver.close()
 

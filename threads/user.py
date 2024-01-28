@@ -127,6 +127,7 @@ class register_user_thread(QThread):
                 self.msg_sig.emit(e.message)
             finally:
                 self.user.update(data=u,condition=['id','=',u['id']])
+                t_service.close_windows()
                 continue
 class reflash_user(QThread):
     msg_sig = pyqtSignal(str)

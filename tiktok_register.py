@@ -1,3 +1,5 @@
+import time
+
 from actions.tiktok import tiktok_service
 
 from selenium import webdriver
@@ -6,7 +8,7 @@ from selenium.webdriver.chrome.options import Options
 import sys
 import pandas as pd
 import requests
-
+from model.user import user
 def get_user_infor(path='input/user.xlsx'):
     user_list = pd.read_excel(path)
     for i,user in user_list.iterrows():
@@ -30,9 +32,20 @@ chrome_driver = resp["data"]["webdriver"]
 chrome_options = Options()
 chrome_options.add_experimental_option("debuggerAddress", resp["data"]["ws"]["selenium"])
 driver = webdriver.Chrome(chrome_options,service=Service(chrome_driver))
+driver.get('https://dev.mysql.com/')
+driver.switch_to.new_window()
+driver.get('https://www.baidu.com')
+driver.implicitly_wait(20)
+time.sleep(20)
+for w in driver.window_handles:
+    driver.switch_to.window(w)
+    driver.close()
+exit(11)
 t_service = tiktok_service(user='',driver=driver)
-for user in get_user_infor('input/user.xlsx'):
+user_model = user()
+user_list = user_model.select(condition=['status','=',1])
+for user in user_list:
     t_service.user=user
     result = t_service.register_by_phone()
     if(result==True):
-        print('{}注册成功'.user['名字'])
+        print('{}注册成功'.user['realname'])
