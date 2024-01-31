@@ -119,8 +119,12 @@ class tiktok_service():
         ele = self.write_input(by=By.ID,condition='phone_email_input',value=self.user['phone'])
         self.driver.execute_script("arguments[0].blur();", ele)
         self.btn_click(by=By.XPATH,condition='//div[@class="theme-arco-checkbox-mask"]')
+
         #点击按钮
         self.btn_click(by=By.CLASS_NAME,condition='index__RedButton--xEvbb')
+
+        self.verification_code_ai()
+        time.sleep(random.uniform(5.0, 7.0))
         try:
             repeat_time=5
             while (repeat_time > 0):
