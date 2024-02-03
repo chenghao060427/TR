@@ -14,14 +14,14 @@ import _thread
 import pandas as pd
 import json
 from model.company_used import company_used
-
+from model.user import user
 from threads.comany import get_comany_thread
 import re
-j = {'code': 0, 'message': '', 'data': {'captchaId': '2301-66cca14b-c52a-422f-84fd-11f736b38617', 'captchaType': '2301', 'recognition': '175,171|85,168'}}
-pos1,pos2 = j['data']['recognition'].split('|')
-pos1_x,pos1_y = pos1.split(',')
-pos2_x,pos2_y = pos2.split(',')
-print(j['code'])
+# j = {'code': 0, 'message': '', 'data': {'captchaId': '2301-66cca14b-c52a-422f-84fd-11f736b38617', 'captchaType': '2301', 'recognition': '175,171|85,168'}}
+# pos1,pos2 = j['data']['recognition'].split('|')
+# pos1_x,pos1_y = pos1.split(',')
+# pos2_x,pos2_y = pos2.split(',')
+# print(j['code'])
 # print(type(json.dumps(j)))
 # comany_u = company_used()
 # comany_u.count(condition=['ein','=','0'])
@@ -40,33 +40,51 @@ print(j['code'])
 #     user_list['名字']=user_list['名字']+user_list['Unnamed: 12']
 # print(user_list['名字'])
 # exit(1)
-# from threading import Thread
-# class c_y():
-#     def t_yield(self):
-#         for i in range(20):
-#             yield i
-#
-# class t(Thread):
-#     def __init__(self,y):
-#         Thread.__init__(self)  # 必须步骤
-#         self.y= y
-#     def run(self):
-#         for i in self.y:
-#             time.sleep(4)
-#             print(i)
+# d = list(range(100,80,-1))
+# print(d)
+# exit(91)
+from threading import Thread
+class c_y():
+    d = list(range(100,80,-1))
+    def t_yield(self,count=1):
+        for i in range(count):
+            yield i,self.d[i]
+    def get_regitser_user_iter(self,num=1):
+        print(93)
+        index = 0
+        self.user_model = user()
+        user_list = self.user_model.select(condition=['status', '=', 1], limit='0,{}'.format(str(num)))
+        print(user_list)
+        self.count = len(user_list)
+        for u in user_list:
+            index+=1
+            yield u,index
+class t(Thread):
+
+    def __init__(self,y):
+        Thread.__init__(self)  # 必须步骤
+        self.y= y
+    def run(self):
+        for i,k in self.y:
+            time.sleep(random.randint(0,4))
+            print(i)
+            self.test('steer')
+            print(k)
+    def test(self,s):
+        print(s)
 #
 # # try:
-# c_y = c_y()
-# y=c_y.t_yield()
-# t1 = t(y=y)
-# t2 = t(y=y)
-# t1.start()
-# t2.start()
-# # except:
-# #     print("Error: unable to start thread")
-# exit(123)
-# while 1:
-#     pass
+c_y = c_y()
+y=c_y.get_regitser_user_iter(20)
+t1 = t(y=y)
+t2 = t(y=y)
+t1.start()
+t2.start()
+# except:
+#     print("Error: unable to start thread")
+exit(123)
+while 1:
+    pass
 # # class r:
 # #     @retry(tries=3,delay=1)
 # #     def test(self):

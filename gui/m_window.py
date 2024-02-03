@@ -1,12 +1,15 @@
 import sys
 from PyQt5.QtWidgets import QMainWindow , QApplication
-from PyQt5.QtWidgets import QAction
-from PyQt5.QtWidgets import QMainWindow,QDesktopWidget,QApplication,QInputDialog,QStatusBar
+from PyQt5.QtWidgets import QAction,QLineEdit,QFormLayout,QVBoxLayout,QHBoxLayout,QLabel
+from PyQt5.QtWidgets import QMainWindow,QDesktopWidget,QApplication,QInputDialog,QStatusBar,QPushButton,QWidget
 from .user.window import user_window
 from .company.window import keyword_window
 from .process_window import process_window
 from threads.comany import get_comany_thread
-import subprocess
+from threads.ads_browser import account_check_thread
+from .backup.phone import phone_window
+from .backup.email import email_window
+import json
 class m_window(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -39,20 +42,40 @@ class m_window(QMainWindow):
         #用户信息管理
         user_menu = bar.addMenu('用户信息管理')
         self.user_infor_action = QAction('用户信息',self)
-        self.user_infor_import_action=QAction('用户信息导入',self)
-        user_menu.addActions([self.user_infor_action,self.user_infor_import_action])
-        #tiktok菜单栏
-        tiktok_menu = bar.addMenu('TikTok管理')
-        self.tiktok_register_action = QAction('用户注册')
-        tiktok_menu.addActions([self.tiktok_register_action])
+        self.ads_reflash_action=QAction('ads浏览器账号释放',self)
+        user_menu.addActions([self.user_infor_action,self.ads_reflash_action])
+        #备份信息
+        backup_menu = bar.addMenu('备份信息管理')
+        self.phone_backup_action = QAction('手机号备份')
+        self.email_backup_action = QAction('邮箱备份')
+        self.config_action = QAction('运行信息设置')
+        backup_menu.addActions([self.phone_backup_action,self.email_backup_action,self.config_action])
+
+
         pass
     #绑定动作
     def connect_action(self):
         self.user_infor_action.triggered.connect(self.show_user_window)
+        self.ads_reflash_action.triggered.connect(self.ads_reflash)
         self.com_keywords_action.triggered.connect(self.show_keyword_window)
         self.com_infor_action.triggered.connect(self.show_comany_dialog)
+        self.phone_backup_action.triggered.connect(self.show_phone_backup)
+        self.email_backup_action.triggered.connect(self.show_email_backup)
+        self.config_action.triggered.connect(self.show_config_form)
         pass
+    def ads_reflash(self):
+        self.pro_win = process_window(p_win=self, f_sig=1)
+        self.af_thread = account_check_thread(pro_win=self.pro_win)
+        self.af_thread.start()
 
+    def show_phone_backup(self):
+        window = phone_window(p_win=self)
+        self.setCentralWidget(window)
+        pass
+    def show_email_backup(self):
+        window = email_window(p_win=self)
+        self.setCentralWidget(window)
+        pass
     def show_comany_dialog(self):
         num, ok = QInputDialog.getInt(self, "新注册用户数", "输入数量", value=600, min=0, max=600)
         if ok:
@@ -71,8 +94,49 @@ class m_window(QMainWindow):
 
         self.setCentralWidget(self.keyword_win)
     def finish_thread(self,f_sig):
-
         pass
+    def show_config_form(self):
+        self.con_win = config_form(self)
+        pass
+class config_form(QWidget):
+
+    def __init__(self,p_window=None):
+        self.p_win =p_window
+        super().__init__()
+        self.resize(400,100)
+        self.config = json.load(open('.env', 'r', encoding='utf-8'))
+        self.setWindowTitle("运行环境信息编辑")
+        keys =self.config.keys()
+        formlayout = QFormLayout()
+        for key in self.config.keys():
+            input = QLineEdit()
+            input.setText(self.config[key])
+            exec(f'self.{key} = input')
+            exec(f'formlayout.addRow(QLabel("{key}"),self.{key})')
+            print(self.config[key])
+
+        vlayout = QVBoxLayout(self)
+        vlayout.addLayout(formlayout)
+
+        s_btn = QPushButton('保存')
+        s_btn.setFixedWidth(100)
+        c_btn = QPushButton('取消')
+        c_btn.setFixedWidth(100)
+        hlayout = QHBoxLayout(self)
+        hlayout.addWidget(s_btn,stretch=0)
+        hlayout.addWidget(c_btn,stretch=0)
+        vlayout.addLayout(hlayout,stretch=1)
+        s_btn.clicked.connect(self.sure)
+        c_btn.clicked.connect(self.cancle)
+        self.show()
+    def cancle(self):
+        self.close()
+    def sure(self):
+        for key in self.config.keys():
+            # print(f'self.config[{key}]= self.{key}.text()')
+            exec(f'self.config["{key}"]= self.{key}.text()')
+        json.dump(self.config,open('.env', 'w', encoding='utf-8'))
+        self.close()
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     main = m_window()

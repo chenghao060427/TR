@@ -1,10 +1,14 @@
+import random
 import time,re
 import imapclient
-from PyQt5.QtCore import QThread,pyqtSignal,QMutex
+from PyQt5.QtCore import QThread,pyqtSignal
 import pandas as pd
 from model.user import user
+from model.email_backup import email_backup
 from actions.ads_browser import ads_browser,browserException
 from actions.tiktok import tiktok_service
+from func.reserve_email import check_account_status,email_check
+
 class import_user_thread(QThread):
     #表格和数据库字典
     dk_xk_dir={
@@ -61,11 +65,46 @@ class import_user_thread(QThread):
                 self.pro_sig.emit(int((i+1)*100/total))
             else:
                 self.msg_sig.emit('第{}条数据导入失败'.format(i+1))
+class register_user_thread_dispatch(QThread):
+    msg_sig = pyqtSignal(str)
+    pro_sig = pyqtSignal(int)
+    def __init__(self,r_type='',count=0,pro_win=None,thread_count=1):
+        super().__init__()
+        self.pro_win = pro_win
+        self.msg_sig.connect(self.pro_win.add_msg)
+        self.pro_sig.connect(self.pro_win.process_set)
+        self.user_model = user()
+        self.count = count
+        self.r_type = r_type
+        self.thread_count=thread_count
+        self.thread_list = []
+        self.user_iter = self.get_regitser_user_iter(num=int(self.count))
+        print(777)
+    def run(self):
+        if(self.count==0):
+            self.msg_sig.emit('0用户注册')
+            self.pro_sig.emit(100)
+            return
 
+        for i in range(self.thread_count):
+            t = register_user_thread(r_type=self.r_type,count=self.count,pro_win=self.pro_win,user_iter=self.user_iter)
+            self.thread_list.append(t)
+            t.start()
+
+    def get_regitser_user_iter(self,num=1):
+        print(93)
+        index = 0
+        user_list = self.user_model.select(condition=['status', '=', 1], limit='0,{}'.format(str(num)))
+        print(user_list)
+        # self.msg_sig.emit('共获取到{}个用户信息'.format(len(user_list)))
+        self.count = len(user_list)
+        for u in user_list:
+            index+=1
+            yield u,index
 class register_user_thread(QThread):
     msg_sig = pyqtSignal(str)
     pro_sig = pyqtSignal(int)
-    def __init__(self,r_type='',count=0,pro_win=None):
+    def __init__(self,r_type='',count=0,pro_win=None,user_iter=[]):
         super().__init__()
         self.pro_win = pro_win
         self.msg_sig.connect(self.pro_win.add_msg)
@@ -74,61 +113,86 @@ class register_user_thread(QThread):
         self.count=count
         self.r_type=r_type
         self.browser = ads_browser()
+        self.user_iter = user_iter
+
     def run(self):
         if(self.count==0):
             self.msg_sig.emit('0用户注册')
             self.pro_sig.emit(100)
             return
-        user_list = self.user.select(condition=['status','=',1],limit='0,{}'.format(self.count))
-        print(user_list)
+        # user_list = self.user.select(condition=['status','=',1],limit='0,{}'.format(self.count))
+        # print(user_list)
         # print(self.browser.search_group(query=''))
-        self.msg_sig.emit('共获取到{}个用户信息'.format(len(user_list)))
-        i=0
-        total = len(user_list)
-        if(total==0):total=1
-        for u in user_list:
+        # self.msg_sig.emit('共获取到{}个用户信息'.format(len(user_list)))
+        # i=0
+        # total = len(user_list)
+        # if(total==0):total=1
+        # print(127)
+        for u,i in self.user_iter:
             try:
-                if(u['browser_account']==None):
-                    account_infor={
-                        'name':u['email'],
-                        'domain_name':'https://seller-us.tiktok.com',
-                        'username':u['email'],
-                        'password':u['email_pwd'],
-                        'group_id':'3492708',
-                        'country':'us',
-                        'regin':'new york',
-                        'user_proxy_config':{"proxy_soft":"922S5"},
-                        'fingerprint_config':{
-                            'automatic_timezone':1,
-                            'webrtc':'proxy',
-                            'location_switch':1,
-                            'language':["en-US","en"],
-                        }
+                if(self.user_email_check(u)==False):
+                    continue
+                account_infor = {
+                    'name': u['email'],
+                    'domain_name': 'https://seller-us.tiktok.com',
+                    'username': u['email'],
+                    'password': u['email_pwd'],
+                    'group_id': '3492708',
+                    'country': 'us',
+                    'regin': 'new york',
+                    'user_proxy_config': {"proxy_soft": "922S5"},
+                    'fingerprint_config': {
+                        'automatic_timezone': 1,
+                        'webrtc': 'proxy',
+                        'location_switch': 1,
+                        'language': ["en-US", "en"],
+                        'browser_kernel_config': {"version": "120", "type": "chrome"}
                     }
-                    print(u)
-                    u['browser_account'] = self.browser.create_account(account_infor=account_infor)
-                    # u['browser_account'] = 'jdc1ree'
+                }
+                if(len(self.browser.search_account({'group_id':'3492708','page_size':100,'user_id':u['browser_account']}))==0):
 
+                    # print(u)
+                    u['browser_account'] = self.browser.create_account(account_infor=account_infor)
                     self.user.update(data=u, condition=['id', '=', u['id']])
+                    # u['browser_account'] = 'jdc1ree'
+                else:
+                    account_infor['user_id']=u['browser_account']
+                    self.browser.update_account(account_infor=account_infor)
+
                 driver = self.browser.get_driver(u['browser_account'])
-                t_service = tiktok_service(user=u,driver=driver)
+                t_service = tiktok_service(user=u,driver=driver,thr=self)
                 if(self.r_type=='邮箱注册'):
                     result = t_service.register()
                 else:
                     result = t_service.register_by_phone()
                 if(result==True):
-                    i+=1
                     t_service.logout()
                     self.msg_sig.emit('第{}个用户注册成功'.format(i))
-                    self.pro_sig.emit(int((i)*100/total))
+                    self.pro_sig.emit(int((i)*100/self.count))
                 # if(u[''])
             except browserException as e:
                 print(e.message)
                 self.msg_sig.emit(e.message)
             finally:
                 self.user.update(data=u,condition=['id','=',u['id']])
-                t_service.close_windows()
                 continue
+    def user_email_check(self,user):
+        if(email_check(user['email'],password=user['email_pwd'])):
+            self.msg_sig.emit('用户{}:登录成功'.format(user['email']))
+            return True
+        else:
+            self.msg_sig.emit('用户{}:登录失败,替换邮箱'.format(user['email']))
+            b_email_list = email_backup().select(condition=['status','=',1],limit='0,1')
+            if(len(b_email_list)):
+                user['email']=b_email_list[0]['email']
+                user['email_pwd']=b_email_list[0]['email_pwd']
+                self.user.update(user,condition=['id','=',user['id']])
+                return True
+
+            else:
+                self.msg_sig.emit('用户{}:登录失败,替换邮箱失败'.format(user['email']))
+                return False
+
 class reflash_user(QThread):
     msg_sig = pyqtSignal(str)
     pro_sig = pyqtSignal(int)
@@ -138,27 +202,30 @@ class reflash_user(QThread):
         self.msg_sig.connect(self.pro_win.add_msg)
         self.pro_sig.connect(self.pro_win.process_set)
         self.user_iter = user_iter
-
+        self.user_model = user()
     def run(self):
-        client = imapclient.IMAPClient('outlook.office365.com', port=993)
+
+        self.msg_sig.emit('共获取到{}个用户信息'.format(len(self.user_iter)))
+        i = 0
+        print(147)
+        total = len(self.user_iter)
+        if (total == 0): total = 1
         for u in self.user_iter:
-            client.login(u['email'], u['email_pwd'])
-            #接受邮件判断店铺状态
-            for f in ['INBOX','Junk']:
-                client.select_folder(folder=f)
-
-                messages = client.search(['FROM', 'register@account.tiktok.com'])
-                # client.select_folder(folder='Inbox')
-
-                # messages = client.search(['FROM','sellersupport@shop.tiktok.com'])
-                print(messages)
-                messages.reverse()
-                for _sm in messages:
-                    msgdict = client.fetch(_sm, ['INTERNALDATE', 'ENVELOPE'])  # 获取邮件内容
-                    # mailbody = msgdict[_sm][b'BODY[]']
-                    # print(msgdict[_sm][b'ENVELOPE'])
-
-                    return msgdict[_sm][b'ENVELOPE'].subject.decode()
-            client.logout()
-
-
+            try:
+            # client.login(u['email'], u['email_pwd'])
+                result = check_account_status(email=u['email'],password=u['email_pwd'])
+                if(result==True):
+                    self.user_model.update({'status':13},condition=['id','=',u['id']])
+                    self.msg_sig.emit('用户:{}店铺正常'.format(u['email']))
+                elif(result==False):
+                    self.user_model.update({'status': 17}, condition=['id', '=', u['id']])
+                    self.msg_sig.emit('用户:{}店铺关闭'.format(u['email']))
+                else:
+                    self.msg_sig.emit('用户:{}未收到邮件'.format(u['email']))
+                i+=1
+            except:
+                self.msg_sig.emit('用户:{}登录失败'.format(u['email']))
+            finally:
+                time.sleep(random.uniform(0.3, 1.1))
+                self.pro_sig.emit(int((i) * 100 / total))
+                continue

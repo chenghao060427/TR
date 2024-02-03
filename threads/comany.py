@@ -1,6 +1,6 @@
 import time,re
 
-from PyQt5.QtCore import QThread,pyqtSignal,QMutex
+from PyQt5.QtCore import QThread,pyqtSignal
 import pandas as pd
 from urllib.parse import urljoin
 from model.company_keyword import company_keyword

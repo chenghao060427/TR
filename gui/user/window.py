@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QFormLayout,QTableWidget,QLabel,QLineEdit,QWidget,QPushButton,QVBoxLayout,\
     QHBoxLayout,QApplication,QAbstractItemView,QHeaderView,QTableWidgetItem,QFileDialog,QInputDialog,QMessageBox,\
-    QCheckBox,QComboBox,QSpinBox
+    QCheckBox,QComboBox,QSpinBox,QMenu
 
 from PyQt5.QtCore import QThread,pyqtSignal,QMutex,Qt
 import sys
@@ -8,7 +8,7 @@ from model.user import user
 import pandas as pd
 import time,re
 from gui.process_window import process_window
-from threads.user import import_user_thread,register_user_thread
+from threads.user import import_user_thread,register_user_thread_dispatch,reflash_user
 import copy
 class user_window(QWidget):
 
@@ -54,6 +54,9 @@ class user_window(QWidget):
         if(self.user_table==None):
             # print(12312)
             self.user_table = QTableWidget()
+            self.user_table.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.user_table.customContextMenuRequested.connect(self.generateMenu)
+
         self.user_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.user_table.setRowCount(len(user_list))
         column_lable = copy.copy(self.user_model.fillable)
@@ -83,6 +86,26 @@ class user_window(QWidget):
                 col+=1
         return self.user_table
         pass
+    def generateMenu(self,pos):
+        print(pos)
+        menu = QMenu()
+        item1= menu.addAction('编辑')
+        item2 = menu.addAction('删除')
+        action = menu.exec_(self.user_table.mapToGlobal(pos))
+        if(action==item1):
+            check_box = self.user_table.cellWidget(self.user_table.currentRow(), 0)
+            self.user_infor_f = userinfor_form(p_window=self,user_id=check_box.id)
+            # self.init_user_table()
+            # self.v_layout.update()
+            # self.update()
+        elif(action==item1):
+            check_box = self.user_table.cellWidget(self.user_table.currentRow(), 0)
+            self.user_model.delete(condition=['id','=',check_box.id])
+            self.user_table.removeRow(self.user_table.currentRow())
+        return
+    def show_user_infor_form(self,user_id):
+        user = self.user_model.select(condition=['id','=',int(user_id)])
+
     def check_all_action(self,index):
         # self.user_table.horizontalHeader().
         current_t = self.user_table.horizontalHeaderItem(0).text()
@@ -136,11 +159,19 @@ class user_window(QWidget):
         self.import_btn.clicked.connect(self.show_user_form)
         self.register_btn.clicked.connect(self.show_register_form)
         self.delete_btn.clicked.connect(self.show_delete_form)
+        self.reflesh_btn.clicked.connect(self.relesh_user)
+    def relesh_user(self):
+        self.r_user_list = self.user_model.select(condition=['status','<>',0])
+        self.pro_win = process_window(p_win=self, f_sig=1)
+        self.relesh_thread = reflash_user(pro_win=self.pro_win,user_iter=self.r_user_list)
+        self.relesh_thread.start()
+        self.reflesh_window()
+
     def show_delete_form(self):
         items = ("全部删除","删除失败的账号","删除选中的账号")
         item,ok = QInputDialog.getItem(self,"选择删除的条件","筛选条件",items,0,False)
         if ok and item:
-            print(item)
+            # print(item)
             if item=='全部删除':
                 all_ok = QMessageBox.information(self,"警告","确定全部删除用户信息吗",QMessageBox.Yes|QMessageBox.No)
                 if(all_ok):
@@ -172,12 +203,11 @@ class user_window(QWidget):
         #         self.r_thread.start()
         # except:
         #     pass
-    def start_register(self,r_type='邮箱注册',num=1):
+    def start_register(self,r_type='邮箱注册',num=1,thread_count=1):
         self.pro_win = process_window(p_win=self, f_sig=1)
-        self.r_thread = register_user_thread(count=num, pro_win=self.pro_win,r_type=r_type)
+        self.r_thread = register_user_thread_dispatch(count=num, pro_win=self.pro_win,r_type=r_type,thread_count=thread_count)
         self.r_thread.start()
     def show_user_form(self):
-
         fname,ok = QFileDialog.getOpenFileName(self,'选择文件','C:\\','*.xls')
         if ok:
             self.import_user_infor(fname)
@@ -204,7 +234,7 @@ class form_window(QWidget):
         super().__init__()
         self.resize(400,100)
 
-        self.setWindowTitle("注册选项")
+        self.setWindowTitle("修改用户信息")
 
         formlayout = QFormLayout()
         lable1 = QLabel("注册方式")
@@ -217,8 +247,13 @@ class form_window(QWidget):
         self.c_input.setMaximum(unregister_count)
         self.c_input.setMinimum(1)
 
+        self.t_input= QSpinBox()
+        self.t_input.setMaximum(4)
+        self.t_input.setMinimum(1)
+
         formlayout.addRow(lable1,self.r_type)
         formlayout.addRow(lable2, self.c_input)
+        formlayout.addRow(QLabel('线程数'),self.t_input)
         vlayout = QVBoxLayout(self)
         vlayout.addLayout(formlayout)
 
@@ -238,7 +273,85 @@ class form_window(QWidget):
     def sure(self):
         print(self.r_type.currentText())
         print(self.c_input.text())
-        self.p_win.start_register(r_type=self.r_type.currentText(),num=self.c_input.text())
+        self.p_win.start_register(r_type=self.r_type.currentText(),num=self.c_input.text(),thread_count = int(self.t_input.text()) )
+class userinfor_form(QWidget):
+    fillable=['email',
+              'email_pwd',
+              'backup_email',
+              'backup_email_url',
+              'realname',
+              'pwd',
+              'birth',
+              'address',
+              'ssn',
+              'phone',
+              'sms_url',
+              'comany_name',
+              'ein',
+              'comnay_addr',
+              'browser_account',
+
+              ]
+    status_dir={
+        1:'未使用',
+        3:'未填写公司信息',
+        5:'未填写商务信息',
+        7:'未填写店铺信息',
+        9:'未填写税务信息',
+        11:'待审核',
+        13:'开通成功',
+        15:'开通失败',
+        17:'店铺已关闭'
+    }
+    def __init__(self,p_window=None,user_id=0):
+        self.p_win =p_window
+        super().__init__()
+        self.resize(400,100)
+        self.model = user()
+        self.user_id = user_id
+        u = self.model.select(condition=['id','=',user_id])
+        u = u[0]
+        self.setWindowTitle("注册信息编辑")
+
+        formlayout = QFormLayout()
+        for key in self.fillable:
+            input = QLineEdit()
+
+            input.setText(str(u[key]))
+            exec(f'self.{key} = input')
+            exec(f'formlayout.addRow(QLabel(key),self.{key})')
+        self.status = QComboBox()
+        self.status.addItems(self.status_dir.values())
+        current_status = self.status_dir[u['status']]
+        self.status.setCurrentText(current_status)
+        formlayout.addRow(QLabel('status'),self.status)
+        vlayout = QVBoxLayout(self)
+        vlayout.addLayout(formlayout)
+
+        s_btn = QPushButton('确认')
+        s_btn.setFixedWidth(100)
+        c_btn = QPushButton('取消')
+        c_btn.setFixedWidth(100)
+        hlayout = QHBoxLayout(self)
+        hlayout.addWidget(s_btn,stretch=0)
+        hlayout.addWidget(c_btn,stretch=0)
+        vlayout.addLayout(hlayout,stretch=1)
+        s_btn.clicked.connect(self.sure)
+        c_btn.clicked.connect(self.cancle)
+        self.show()
+    def cancle(self):
+        self.close()
+    def sure(self):
+        data={}
+        for key in self.fillable:
+            exec(f'data["{key}"]=self.{key}.text()')
+        reversed_dict = dict(zip(self.status_dir.values(), self.status_dir.keys()))
+        data['status'] = reversed_dict[self.status.currentText()]
+        self.model.update(data=data,condition=['id','=',self.user_id])
+        self.p_win.init_user_table()
+        self.p_win.user_table.update()
+        self.close()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -64,9 +64,12 @@ class ads_browser:
         pass
     def del_account(self,user_infor):
         del_url = self.base_url+'/api/v1/user/delete'
-        resp = requests.post(del_url,json=user_infor).json()
+        # print(del_url)
+        data = {'user_ids':user_infor}
+        resp = requests.post(del_url,json=data).json()
         if resp["code"] != 0:
-            raise False
+            print(resp)
+            return False
         else:
             return True
         pass
@@ -103,7 +106,9 @@ class ads_browser:
         pass
 if __name__ == "__main__":
     a = ads_browser()
-    group_list = a.search_account(query={'group_id':'3492708','page_size':100})
+    group_list = a.search_account(query={'group_id':'3492708','page_size':100,'user_id':None
+                                        })
+    # a.del_account(['jdwbq5c', 'jdwbocq'])
     print(group_list)
     # d = a.get_driver(user_id='jdbd88g')
 

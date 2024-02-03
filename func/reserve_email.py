@@ -37,7 +37,7 @@ import time
 #             else:
 #                 print('error')
 #                 return 'erro'
-def get_register_code(email='',password='',end_time=''):
+def check_account_status(email='',password='',end_time=''):
     client = imapclient.IMAPClient('outlook.office365.com',port=993)
     print(email)
     print(password)
@@ -49,10 +49,10 @@ def get_register_code(email='',password='',end_time=''):
 
         client.select_folder(folder=f)
 
-        messages = client.search(['FROM', 'register@account.tiktok.com'])
+        # messages = client.search(['FROM', 'register@account.tiktok.com'])
         # client.select_folder(folder='Inbox')
 
-        # messages = client.search(['FROM','sellersupport@shop.tiktok.com'])
+        messages = client.search(['FROM','sellersupport@shop.tiktok.com'])
         print(messages)
         messages.reverse()
 
@@ -62,17 +62,28 @@ def get_register_code(email='',password='',end_time=''):
             msgdict = client.fetch(_sm, ['INTERNALDATE','ENVELOPE'])  # 获取邮件内容
 
             # mailbody = msgdict[_sm][b'BODY[]']
-            # print(msgdict[_sm][b'INTERNALDATE'])
+            title = str(msgdict[_sm][b'ENVELOPE'].subject)
 
-            if(current_time<int(msgdict[_sm][b'INTERNALDATE'].timestamp())):
+            if(re.search(r'Your TikTok Shop Application',title)):
+                if(re.search('Your TikTok Shop Application was not Successful',title)):
+                    return False
+                elif(re.search('Your TikTok Shop Application was Successful',title)):
+                    return True
 
-                current_time = int(msgdict[_sm][b'INTERNALDATE'].timestamp())
-                current_content =  msgdict[_sm][b'ENVELOPE'].subject.decode()
-        s = re.search(r'\d{6}',current_content)
-        if(s != None):
-            print(s.group())
-            return s.group()
+
     client.logout()
     return None
+
+def email_check(email='',password='',):
+    try:
+        client = imapclient.IMAPClient('outlook.office365.com',port=993)
+        print(email)
+        print(password)
+        client.login(email,password)
+        time.sleep(0.3)
+        client.logout()
+        return True
+    except:
+        return False
 if __name__ == '__main__':
-    print(get_register_code('mbgfwocbbo@hotmail.com','uOdVxL889',end_time=int(time.time())-36000))
+    print(check_account_status('q2km3zu0n@outlook.com','llas9892',end_time=int(time.time())-36000))
