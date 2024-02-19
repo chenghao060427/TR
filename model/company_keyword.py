@@ -1,7 +1,7 @@
 from .model import model
 
 class company_keyword(model):
-    fillable=['value']
+    fillable=['value','times']
     table = 'company_keywords'
 
     def __init__(self):

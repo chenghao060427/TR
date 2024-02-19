@@ -1,6 +1,7 @@
 #数据库的增删改查操作
 import pymysql
 import json
+import threading
 class mysql_class(object):
 
     db=None
@@ -14,6 +15,7 @@ class mysql_class(object):
     def __init__(self):
         config = json.load(open('.env','r',encoding='utf-8'))
         self.db=pymysql.connect(host=config['DB_HOST'],user=config['DB_USERNAME'],password=config['DB_PASSWORD'],database=config['DB_DATABASE'])
+        self.lock = threading.Lock()
     def __del__(self):
         self.db.close()
     #查询操作
@@ -79,12 +81,15 @@ class mysql_class(object):
         # print(sql_string)
         # exit()
         try:
+            self.lock.acquire()
             cursor.execute(sql_string)
             self.db.commit()
+            self.lock.release()
             return True
         except Exception as e:
             print(e)
             self.db.rollback()
+            self.lock.release()
             return False
 
     def update(self,data,condition,db):
@@ -108,11 +113,14 @@ class mysql_class(object):
         print(sql_string)
         # return
         try:
+            self.lock.acquire()
             cursor.execute(sql_string)
             self.db.commit()
+            self.lock.release()
             return True
         except:
             self.db.rollback()
+            self.lock.release()
             return False
     def destroy(self,condition,db):
         cursor = self.db.cursor()
@@ -124,26 +132,32 @@ class mysql_class(object):
             sql = "DELETE FROM "+db
         print(sql)
         try:
+            self.lock.acquire()
             # 执行SQL语句
             cursor.execute(sql)
             # 提交修改
             self.db.commit()
+            self.lock.release()
             return True
         except:
             # 发生错误时回滚
             self.db.rollback()
+            self.lock.release()
             return False
     #清空表
     def clear(self,db):
         cursor = self.db.cursor()
         sql = "Truncate table "+db
         try:
+            self.lock.acquire()
             # 执行SQL语句
             cursor.execute(sql)
             # 提交修改
             self.db.commit()
+            self.lock.release()
             return True
         except:
             # 发生错误时回滚
             self.db.rollback()
+            self.lock.release()
             return False

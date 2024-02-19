@@ -24,9 +24,12 @@ class model:
         # print(colunm)
         if(type(colunm) == list):
             l =  self.db.select(column=','.join(colunm),condition=condition,db=self.table,order=order,limit=limit)
-
             for value in l:
-                result.append(self.tup_to_dict(colunm,value))
+                result.append(self.tup_to_dict(colunm, value))
+        elif(type(colunm) == str):
+            l = self.db.select(column=colunm, condition=condition, db=self.table, order=order, limit=limit)
+            for value in l:
+                result.append(self.tup_to_dict([colunm], value))
         return result
         pass
     def delete(self,condition=''):

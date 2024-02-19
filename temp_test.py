@@ -44,21 +44,55 @@ import re
 # print(d)
 # exit(91)
 from threading import Thread
-class c_y():
+import threading
+r = re.sub(r'\s+',' ','5400 Volunteer Road             Southwest Ranches, FL 33330 ')
+print(r)
+exit(111)
+class threadsafe_generator:
+    """Takes an generator and makes it thread-safe by
+    serializing call to the `next` method of given generator.
+    """
+    def __init__(self, gen):
+        self.gen = gen
+        self.lock = threading.Lock()
+
+    def __iter__(self):
+
+        return self
+
+    def __next__(self):
+        # print(60)
+        with self.lock:
+            return self.gen.__next__()
+class c_y(Thread):
     d = list(range(100,80,-1))
+    def __init__(self):
+        Thread.__init__(self)
+        self.thread_list=[]
+    def run(self):
+
+        self.it = threadsafe_generator(self.t_yield(20))
+        # for i in self.it:
+            # print(i)
+        # return
+        for i in range(3):
+            ct = t(y=self.it)
+            ct.start()
+            self.thread_list.append(ct)
+
     def t_yield(self,count=1):
         for i in range(count):
             yield i,self.d[i]
-    def get_regitser_user_iter(self,num=1):
-        print(93)
-        index = 0
-        self.user_model = user()
-        user_list = self.user_model.select(condition=['status', '=', 1], limit='0,{}'.format(str(num)))
-        print(user_list)
-        self.count = len(user_list)
-        for u in user_list:
-            index+=1
-            yield u,index
+    # def get_regitser_user_iter(self,num=1):
+    #     print(93)
+    #     index = 0
+    #     self.user_model = user()
+    #     user_list = self.user_model.select(condition=['status', '=', 1], limit='0,{}'.format(str(num)))
+    #     print(user_list)
+    #     self.count = len(user_list)
+    #     for u in user_list:
+    #         index+=1
+    #         yield u,index
 class t(Thread):
 
     def __init__(self,y):
@@ -75,14 +109,15 @@ class t(Thread):
 #
 # # try:
 c_y = c_y()
-y=c_y.get_regitser_user_iter(20)
-t1 = t(y=y)
-t2 = t(y=y)
-t1.start()
-t2.start()
+c_y.start()
+# y=c_y.get_regitser_user_iter(20)
+# t1 = t(y=y)
+# t2 = t(y=y)
+# t1.start()
+# t2.start()
 # except:
 #     print("Error: unable to start thread")
-exit(123)
+# exit(123)
 while 1:
     pass
 # # class r:

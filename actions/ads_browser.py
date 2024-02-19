@@ -106,8 +106,7 @@ class ads_browser:
         pass
 if __name__ == "__main__":
     a = ads_browser()
-    group_list = a.search_account(query={'group_id':'3492708','page_size':100,'user_id':None
-                                        })
+    group_list = a.search_group(query='')
     # a.del_account(['jdwbq5c', 'jdwbocq'])
     print(group_list)
     # d = a.get_driver(user_id='jdbd88g')

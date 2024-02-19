@@ -7,8 +7,40 @@ import sys
 from urllib.parse import urljoin
 import pandas as pd
 from func.search_xpath import get_company_list,get_company_detail
+from model.company_keyword import company_keyword
+import random
+from threads.comany import get_company_dispatch
+
+d = get_company_dispatch(company_num=700,pro_win=None)
+d.start()
+def chose_keyword(num=0):
+    keyword_db = company_keyword()
+    min_times = keyword_db.select(colunm='min(times)');
+    current_times = min_times[0]['min(times)']
+    keyword_list = []
+    total_num = num
+    last_num = num
+    while (total_num > len(keyword_list)):
+        re_keyword_list = keyword_db.select(condition=['times', '=', current_times])
+        if (last_num > len(re_keyword_list)):
+            random.shuffle(re_keyword_list)
+            for keyword in re_keyword_list:
+                keyword_list.append(keyword)
+            last_num -= len(re_keyword_list)
+        else:
+            random.shuffle(re_keyword_list)
+            for keyword in re_keyword_list[0:last_num]:
+                keyword_list.append(keyword)
+            last_num = 0
+        current_times+=1
+
+    for index in  range(num):
+        yield index,keyword_list[index]
 
 
+k_list = chose_keyword(100)
+print(k_list)
+exit(1333)
 
 # ads_id = "2cb99d93dd220ad4b3950db9976544a5"
 ads_id = "jcxetpn"

@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QMainWindow,QDesktopWidget,QApplication,QInputDialog
 from .user.window import user_window
 from .company.window import keyword_window
 from .process_window import process_window
-from threads.comany import get_comany_thread
+from threads.comany import get_company_dispatch
 from threads.ads_browser import account_check_thread
 from .backup.phone import phone_window
 from .backup.email import email_window
@@ -77,10 +77,10 @@ class m_window(QMainWindow):
         self.setCentralWidget(window)
         pass
     def show_comany_dialog(self):
-        num, ok = QInputDialog.getInt(self, "新注册用户数", "输入数量", value=600, min=0, max=600)
+        num, ok = QInputDialog.getInt(self, "新注册用户数", "输入数量", value=600, min=0, max=10000)
         if ok:
             self.pro_win = process_window(p_win=self, f_sig=1)
-            self.gc_thread = get_comany_thread(count=num, pro_win=self.pro_win)
+            self.gc_thread = get_company_dispatch(company_num=num, pro_win=self.pro_win)
             self.gc_thread.start()
     def show_user_window(self):
 
