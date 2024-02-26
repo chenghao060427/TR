@@ -6,12 +6,12 @@ class mysql_class(object):
 
     db=None
     __instans = None
-    def __new__(cls, *args, **kwargs):
-        if(cls.__instans is None):
-            cls.__instans = super().__new__(cls)
-            return cls.__instans
-        else:
-            return cls.__instans
+    # def __new__(cls, *args, **kwargs):
+    #     if(cls.__instans is None):
+    #         cls.__instans = super().__new__(cls)
+    #         return cls.__instans
+    #     else:
+    #         return cls.__instans
     def __init__(self):
         config = json.load(open('.env','r',encoding='utf-8'))
         self.db=pymysql.connect(host=config['DB_HOST'],user=config['DB_USERNAME'],password=config['DB_PASSWORD'],database=config['DB_DATABASE'])
